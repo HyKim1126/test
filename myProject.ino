@@ -146,4 +146,9 @@ void loop() {
   }
   delay(300);
   wifi.releaseTCP();
+
+
+
+
+  
 }
