@@ -68,12 +68,18 @@ void setup() {
 }
 
 void loop() {
+  
   // NFC communication
-
   Serial.print("\r\nWaiting for an ISO14443A card.");
   while(!success){
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength); 
     Serial.print(".");
+    for (uint8_t i = 0; i < uidLength; i++)
+    {
+      Serial.print(" 0x");
+      Serial.print(uid[i], HEX);
+      password += (int)uid[i];
+    }
     delay(1000);
   }
   
@@ -83,15 +89,13 @@ void loop() {
   Serial.print(" bytes");
   Serial.print("\r\nUID Value: ");
 
-  for (uint8_t i = 0; i < uidLength; i++)
-  {
-      Serial.print(" 0x");
-      Serial.print(uid[i], HEX);
-      password += (int)uid[i];
-  }
   Serial.println("\r\npassword : "+ password);
 
-  uint8_t buffer[7]={0};
+  // create TCP
+  wifi.createTCP(HOST_NAME, HOST_PORT);
+
+  // create command
+  uint8_t buffer[7] = {0};
   String judge = "";
   String stl = "GET /";
   stl += password;
@@ -101,13 +105,10 @@ void loop() {
   Serial.print("cmd : ");
   Serial.println(cmd);
 
-  // create TCP
-  wifi.createTCP(HOST_NAME, HOST_PORT);
-
   // communicate with Server
   if(wifi.send(cmd, strlen(cmd))){
     int len = wifi.recvMP(buffer,300,10000);
-    Serial.println("send OK");
+    Serial.println("send OK, buffer lenth : " + len);
     if(len > 0){
       Serial.println("recv OK");
     } else {
