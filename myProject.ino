@@ -6,7 +6,7 @@
  
 #define BT_RXD 2 
 #define BT_TXD 3
-#define RECV_PIN  12
+
 #define SSID        "SK_WiFiGIGA4A0F"
 #define PASSWORD    "ques1234@"
 #define HOST_NAME   "192.168.35.190"
@@ -20,7 +20,9 @@ ESP8266 wifi(ESP_wifi);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 String password = "";
-int OMC = 0;
+bool success = false;
+uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
+uint8_t uidLength = 0;
 
 void setup() {
   // WiFi setup
@@ -66,25 +68,14 @@ void setup() {
 }
 
 void loop() {
-  bool success = false;
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
-  uint8_t uidLength = 0;
-  
-  Serial.print("\r\nWaiting for an ISO14443A card.");
+  // NFC communication
 
+  Serial.print("\r\nWaiting for an ISO14443A card.");
   while(!success){
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength); 
     Serial.print(".");
     delay(1000);
-    if(OMC){
-      break;
-    }
   }
-
-<<<<<<< HEAD
-  wifi.createTCP(HOST_NAME, HOST_PORT);
-=======
-  OMC = 1;
   
   Serial.print("\r\nFound a card!");
   Serial.print("\r\nUID Length: ");
@@ -99,8 +90,7 @@ void loop() {
       password += (int)uid[i];
   }
   Serial.println("\r\npassword : "+ password);
-    
->>>>>>> NFC
+
   uint8_t buffer[7]={0};
   String judge = "";
   String stl = "GET /";
@@ -108,12 +98,16 @@ void loop() {
   stl += "\r\n\r\n";
   char* cmd = new char[stl.length()+1];
   strcpy(cmd, stl.c_str());
+  Serial.print("cmd : ");
   Serial.println(cmd);
 
+  // create TCP
   wifi.createTCP(HOST_NAME, HOST_PORT);
+
+  // communicate with Server
   if(wifi.send(cmd, strlen(cmd))){
-    Serial.println("send OK");
     int len = wifi.recvMP(buffer,300,10000);
+    Serial.println("send OK");
     if(len > 0){
       Serial.println("recv OK");
     } else {
@@ -132,11 +126,21 @@ void loop() {
     judge += (char)buffer[i];
     Serial.print((char)buffer[i]);
   }
+
+  // variables refresh
   delete[] cmd;
   cmd = NULL;
   password = "";
-  OMC = 0;
-  Serial.println(judge);
+  success = false;
+  for (uint8_t i = 0; i < uidLength; i++)
+  {
+      uid[i]=0;
+  }
+  uidLength = 0;
 
+  // result action
+  Serial.println(judge);
+  
+  // release TCP
   wifi.releaseTCP();
 }
