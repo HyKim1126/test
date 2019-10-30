@@ -43,6 +43,7 @@ void setup() {
      while (1);
   }
   Serial.println("[ Setup end ]");
+  
   // NFC setup
   Serial.print("\r\n\r\nPN532 NFC Start..");
   nfc.begin();
@@ -61,21 +62,20 @@ void setup() {
   Serial.print((versiondata>>8) & 0xFF, DEC);
 
   nfc.setPassiveActivationRetries(0xFF);
+  nfc.SAMConfig(); 
+}
 
-  nfc.SAMConfig();
-
- 
-} 
 void loop() {
   bool success = false;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
-  uint8_t uidLength;
+  uint8_t uidLength = 0;
   
   Serial.print("\r\nWaiting for an ISO14443A card.");
 
   while(!success){
     success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength); 
     Serial.print(".");
+    delay(1000);
     if(OMC){
       break;
     }
@@ -89,14 +89,13 @@ void loop() {
   Serial.print(" bytes");
   Serial.print("\r\nUID Value: ");
 
-  for (uint8_t i = 0; i < uidLength; i++)
-  {
-      Serial.print(" 0x");
-      Serial.print(uid[i], HEX);
-      password += (int)uid[i];
-  }
-  Serial.println("\r\n"+ password);
-  
+    for (uint8_t i = 0; i < uidLength; i++)
+    {
+        Serial.print(" 0x");
+        Serial.print(uid[i], HEX);
+        password += (int)uid[i];
+    }
+    Serial.println("\r\n password : "+ password);
 
   uint8_t buffer[7]={0};
   String judge = "";
