@@ -102,7 +102,7 @@ void loop() {
   }
   Serial.println("password : " + password);
 
-
+  wifi.createTCP(HOST_NAME, HOST_PORT);
   uint8_t buffer[7]={0};
   String judge = "";
   String stl = "GET /";
