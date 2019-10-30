@@ -89,14 +89,14 @@ void loop() {
   Serial.print(" bytes");
   Serial.print("\r\nUID Value: ");
 
-    for (uint8_t i = 0; i < uidLength; i++)
-    {
-        Serial.print(" 0x");
-        Serial.print(uid[i], HEX);
-        password += (int)uid[i];
-    }
-    Serial.println("\r\n password : "+ password);
-
+  for (uint8_t i = 0; i < uidLength; i++)
+  {
+      Serial.print(" 0x");
+      Serial.print(uid[i], HEX);
+      password += (int)uid[i];
+  }
+  Serial.println("\r\npassword : "+ password);
+    
   uint8_t buffer[7]={0};
   String judge = "";
   String stl = "GET /";
@@ -105,7 +105,10 @@ void loop() {
   char* cmd = new char[stl.length()+1];
   strcpy(cmd, stl.c_str());
   Serial.println(cmd);
+
+  wifi.createTCP(HOST_NAME, HOST_PORT);
   if(wifi.send(cmd, strlen(cmd))){
+    Serial.println("send OK");
     int len = wifi.recvMP(buffer,300,10000);
     if(len > 0){
       Serial.println("recv OK");
