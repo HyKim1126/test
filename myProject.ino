@@ -44,10 +44,10 @@ void setup() {
      Serial.println("ERR: Disabling MUX");
      while (1);
   }
-  Serial.println("[ Setup end ]");
+  Serial.println("[ WiFi Setup end ]");
   
   // NFC setup
-  Serial.print("\r\n\r\nPN532 NFC Start..");
+  Serial.print("\r\nPN532 NFC Start..");
   nfc.begin();
   
   uint32_t versiondata = nfc.getFirmwareVersion();
@@ -76,8 +76,6 @@ void loop() {
     Serial.print(".");
     for (uint8_t i = 0; i < uidLength; i++)
     {
-      Serial.print(" 0x");
-      Serial.print(uid[i], HEX);
       password += (int)uid[i];
     }
     delay(1000);
@@ -88,7 +86,11 @@ void loop() {
   Serial.print(uidLength, DEC);
   Serial.print(" bytes");
   Serial.print("\r\nUID Value: ");
-
+  for (uint8_t i = 0; i < uidLength; i++)
+  {
+    Serial.print(" 0x");
+    Serial.print(uid[i], HEX);
+  }
   Serial.println("\r\npassword : "+ password);
 
   // create TCP
@@ -140,7 +142,14 @@ void loop() {
   uidLength = 0;
 
   // result action
-  Serial.println(judge);
+  Serial.println("\r\n" + judge);
+  if(judge.equals("_passed")){
+    Serial.println("Access alowed!");
+  } else if(judge.equals("_banned")){
+    Serial.println("Access banned!");
+  } else {
+    Serial.println("An error occured!");
+  }
   
   // release TCP
   wifi.releaseTCP();
