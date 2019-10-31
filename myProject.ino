@@ -97,7 +97,6 @@ void loop() {
   wifi.createTCP(HOST_NAME, HOST_PORT);
 
   // create command
-  uint8_t buffer[7] = {0};
   String judge = "";
   String stl = "GET /";
   stl += password;
@@ -109,27 +108,25 @@ void loop() {
 
   // communicate with Server
   if(wifi.send(cmd, strlen(cmd))){
-    int len = wifi.recvMP(buffer,300,10000);
-    Serial.println("send OK, buffer lenth : " + len);
-    if(len > 0){
-      Serial.println("recv OK");
-    } else {
-      Serial.println("recv ERR.. retrying");
-      delete[] cmd;
-      cmd = NULL;
-      return;
-    }
+    judge = wifi.recvStringMP("banned", "passed", 10000);
+    Serial.println(judge);
+      if(judge == "banned"){
+        Serial.println("Access banned!");  
+      } else if(judge == "passed"){
+        Serial.println("Access allowed!");
+      } else {
+        Serial.println("An error occured!");
+        wifi.releaseTCP();
+        delete[] cmd;
+        cmd = NULL;     
+        return;
+      }
   } else {
     Serial.println("send ERR.. retrying");
     delete[] cmd;
     cmd = NULL;
     return;
   }
-  for(int i=0; i<sizeof(buffer);i++){
-    judge += (char)buffer[i];
-    Serial.print((char)buffer[i]);
-  }
-
   // variables refresh
   delete[] cmd;
   cmd = NULL;
@@ -140,16 +137,6 @@ void loop() {
       uid[i]=0;
   }
   uidLength = 0;
-
-  // result action
-  Serial.println("\r\n" + judge);
-  if(judge.equals("_passed")){
-    Serial.println("Access alowed!");
-  } else if(judge.equals("_banned")){
-    Serial.println("Access banned!");
-  } else {
-    Serial.println("An error occured!");
-  }
   
   // release TCP
   wifi.releaseTCP();
