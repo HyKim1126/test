@@ -8,6 +8,7 @@
 #define BT_RXD 2 
 #define BT_TXD 3
 #define SERVO_PIN 5
+#define BUZZER_PIN 12
 
 #define SSID        "SK_WiFiGIGA4A0F"
 #define PASSWORD    "ques1234@"
@@ -21,6 +22,10 @@ Servo servo;
 
 ESP8266 wifi(ESP_wifi);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+
+int melody_open[] = {3951,3136,3520,4699};
+int melody_close[] = {3136, 3951, 4699};
+int melody_wrong = 6644;
 
 String password = "";
 bool success = false;
@@ -121,13 +126,31 @@ void loop() {
     judge = wifi.recvStringMP("banned", "passed", 2000);
     Serial.println(judge);
       if(judge == "banned"){
-        Serial.println("Access banned!");  
+        Serial.println("Access banned!");
+        for(int Note = 0; Note < 8; Note++){
+          tone(BUZZER_PIN, melody_wrong, 200);
+          delay(250);
+          noTone(BUZZER_PIN);
+        }          
       } else if(judge == "passed"){
         Serial.println("Access allowed!");
         servo.attach(SERVO_PIN);
         servo.write(0);
-        delay(300);
+        for(int Note=0; Note < 4; Note++){
+          tone(BUZZER_PIN, melody_open[Note], 200);
+          delay(250);
+          noTone(BUZZER_PIN); 
+        }
         servo.detach();
+        delay(4000);
+        servo.attach(SERVO_PIN);
+        servo.write(90);
+        for(int Note = 0; Note < 3; Note++){
+          tone(BUZZER_PIN, melody_close[Note], 200);
+          delay(250);
+          noTone(BUZZER_PIN);
+        }
+  servo.detach();
       } else {
         Serial.println("An error occured!");
         wifi.releaseTCP();
@@ -152,12 +175,7 @@ void loop() {
       uid[i]=0;
   }
   uidLength = 0;
-  delay(3000);
   
   // release TCP
   wifi.releaseTCP();
-  servo.attach(SERVO_PIN);
-  servo.write(90);
-  delay(300);
-  servo.detach();
 }
