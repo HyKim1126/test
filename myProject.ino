@@ -3,9 +3,11 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_PN532.h>
+#include <Servo.h>
  
 #define BT_RXD 2 
 #define BT_TXD 3
+#define SERVO_PIN 5
 
 #define SSID        "SK_WiFiGIGA4A0F"
 #define PASSWORD    "ques1234@"
@@ -15,6 +17,7 @@
 #define PN532_RESET (8)
 
 SoftwareSerial ESP_wifi(BT_RXD, BT_TXD);
+Servo servo;
 
 ESP8266 wifi(ESP_wifi);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
@@ -65,7 +68,14 @@ void setup() {
 
   nfc.setPassiveActivationRetries(0xFF);
   nfc.SAMConfig(); 
+
+  //Servo moter setting
+  servo.attach(SERVO_PIN);
+  servo.write(90);
+  delay(300);
+  servo.detach();
 }
+
 
 void loop() {
   
@@ -108,12 +118,16 @@ void loop() {
 
   // communicate with Server
   if(wifi.send(cmd, strlen(cmd))){
-    judge = wifi.recvStringMP("banned", "passed", 10000);
+    judge = wifi.recvStringMP("banned", "passed", 2000);
     Serial.println(judge);
       if(judge == "banned"){
         Serial.println("Access banned!");  
       } else if(judge == "passed"){
         Serial.println("Access allowed!");
+        servo.attach(SERVO_PIN);
+        servo.write(0);
+        delay(300);
+        servo.detach();
       } else {
         Serial.println("An error occured!");
         wifi.releaseTCP();
@@ -127,6 +141,7 @@ void loop() {
     cmd = NULL;
     return;
   }
+  
   // variables refresh
   delete[] cmd;
   cmd = NULL;
@@ -137,7 +152,12 @@ void loop() {
       uid[i]=0;
   }
   uidLength = 0;
+  delay(3000);
   
   // release TCP
   wifi.releaseTCP();
+  servo.attach(SERVO_PIN);
+  servo.write(90);
+  delay(300);
+  servo.detach();
 }
