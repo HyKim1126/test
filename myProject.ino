@@ -10,9 +10,9 @@
 #define SERVO_PIN 5
 #define BUZZER_PIN 12
 
-#define SSID        "SK_WiFiGIGA4A0F"
-#define PASSWORD    "ques1234@"
-#define HOST_NAME   "192.168.35.190"
+#define SSID        "KT_GiGA_2G_Wave2_DD93"
+#define PASSWORD    "baf30bd739"
+#define HOST_NAME   "172.30.1.42"
 #define HOST_PORT   (3000)
 #define PN532_IRQ   (9)
 #define PN532_RESET (8)
