@@ -34,6 +34,8 @@ uint8_t uidLength = 0;
 
 void setup() {
   // WiFi setup
+  wifi.leaveAP();
+  
   bool success = false;
   Serial.begin(9600);
   Serial.print("Configuring ESP8266..");
@@ -91,7 +93,7 @@ void loop() {
     Serial.print(".");
     for (uint8_t i = 0; i < uidLength; i++)
     {
-      password += (int)uid[i];
+      password += aa;
     }
     delay(1000);
   }
@@ -110,30 +112,30 @@ void loop() {
 
   // create TCP
   wifi.createTCP(HOST_NAME, HOST_PORT);
-
   // create command
   String judge = "";
-  String stl = "GET /";
+  String stl = "GET /judge?userName=donghyunna&token=";
   stl += password;
   stl += "\r\n\r\n";
   char* cmd = new char[stl.length()+1];
   strcpy(cmd, stl.c_str());
   Serial.print("cmd : ");
   Serial.println(cmd);
+  Serial.println(strlen(cmd));
 
   // communicate with Server
   if(wifi.send(cmd, strlen(cmd))){
-    judge = wifi.recvStringMP("banned", "passed", 2000);
+    judge = wifi.recvStringMP("_forbidden", "_permitted", 2000);
     Serial.println(judge);
-      if(judge == "banned"){
-        Serial.println("Access banned!");
+      if(judge == "_forbidden"){
+        Serial.println("Access is forbbiden!");
         for(int Note = 0; Note < 8; Note++){
           tone(BUZZER_PIN, melody_wrong, 200);
           delay(250);
           noTone(BUZZER_PIN);
         }          
-      } else if(judge == "passed"){
-        Serial.println("Access allowed!");
+      } else if(judge == "_permitted"){
+        Serial.println("Access is permitted!");
         servo.attach(SERVO_PIN);
         servo.write(0);
         for(int Note=0; Note < 4; Note++){
