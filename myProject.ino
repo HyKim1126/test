@@ -4,18 +4,22 @@
 #include <SPI.h>
 #include <Adafruit_PN532.h>
 #include <Servo.h>
+#include <String.h>
  
-#define BT_RXD 2 
-#define BT_TXD 3
-#define SERVO_PIN 5
-#define BUZZER_PIN 12
+#define BT_RXD      2 
+#define BT_TXD      3
+#define SERVO_PIN   5
+#define BUZZER_PIN  12
+
+//#define DL_NFC_AID  "3ADF2C8692"
+//#define SELECT_APDU "00A40400"
 
 #define SSID        "KT_GiGA_2G_Wave2_DD93"
 #define PASSWORD    "baf30bd739"
 #define HOST_NAME   "172.30.1.42"
-#define HOST_PORT   (3000)
-#define PN532_IRQ   (9)
-#define PN532_RESET (8)
+#define HOST_PORT   3000
+#define PN532_IRQ   9
+#define PN532_RESET 8
 
 SoftwareSerial ESP_wifi(BT_RXD, BT_TXD);
 Servo servo;
@@ -23,14 +27,18 @@ Servo servo;
 ESP8266 wifi(ESP_wifi);
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
-int melody_open[] = {3951,3136,3520,4699};
-int melody_close[] = {3136, 3951, 4699};
-int melody_wrong = 6644;
+const int melody_open[] = {3951,3136,3520,4699};
+const int melody_close[] = {3136, 3951, 4699};
+const int melody_wrong = 3322;
 
-String password = "";
+const uint8_t selectCommand[] = {0x00, 0xa4, 0x04, 0x00, 0x05, 0x3a, 0xdf, 0x2c, 0x86, 0x92};
+
+String userName = "";
+String keyValue = "";
 bool success = false;
-uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
-uint8_t uidLength = 0;
+bool successTag = false;
+uint8_t responseLength = 52;
+uint8_t responseAPDU[52];
 
 void setup() {
   // WiFi setup
@@ -83,44 +91,70 @@ void setup() {
   servo.detach();
 }
 
-
-void loop() {
-  
-  // NFC communication
-  Serial.print("\r\nWaiting for an ISO14443A card.");
+void loop() {  
+  //NFC communication
+  char instChar = "";
+  Serial.print("\r\nWait for NFC tag");
   while(!success){
-    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength); 
-    Serial.print(".");
-    for (uint8_t i = 0; i < uidLength; i++)
-    {
-      password += aa;
+    success = nfc.inListPassiveTarget();
+    if(success){
+      success = nfc.inDataExchange(selectCommand, sizeof(selectCommand), responseAPDU, &responseLength);
+      if(success){
+        tone(BUZZER_PIN, 3951, 200);
+        delay(200);
+        tone(BUZZER_PIN, 3951, 200);
+        delay(200);
+        noTone(BUZZER_PIN);
+        Serial.print("responseLength: "); Serial.println(responseLength);
+        nfc.PrintHexChar(responseAPDU, responseLength); 
+      }
     }
-    delay(1000);
+  }
+  Serial.println("NFC tag completed");
+  delay(300);
+
+  // Distinguish response
+  if (!(responseAPDU[50] == 0x90 && responseAPDU[51] == 0x00)){
+    Serial.println("APDU failed.");
+    success = false;
+    instChar = "";
+    for(int Note = 0; Note < 8; Note++){
+      tone(BUZZER_PIN, melody_wrong, 200);
+      delay(250);
+      noTone(BUZZER_PIN);
+    }    
+    return;
+  }
+
+  // Make userName and keyValue String
+  for(int i = 0 ; i < 50 ; i++){
+    if(i < 30){
+      if(responseAPDU[i] != 0x00){
+        instChar = responseAPDU[i];
+        userName += instChar;
+      }
+    } else {
+      instChar = responseAPDU[i];
+      keyValue += instChar;
+    }
   }
   
-  Serial.print("\r\nFound a card!");
-  Serial.print("\r\nUID Length: ");
-  Serial.print(uidLength, DEC);
-  Serial.print(" bytes");
-  Serial.print("\r\nUID Value: ");
-  for (uint8_t i = 0; i < uidLength; i++)
-  {
-    Serial.print(" 0x");
-    Serial.print(uid[i], HEX);
-  }
-  Serial.println("\r\npassword : "+ password);
+  Serial.print("Username is ");
+  Serial.println(userName);
+  Serial.print("Keyvalue is ");
+  Serial.println(keyValue);
 
   // create TCP
   wifi.createTCP(HOST_NAME, HOST_PORT);
+  
   // create command
   String judge = "";
-  String stl = "GET /judge?userName=donghyunna&token=";
-  stl += password;
-  stl += "\r\n\r\n";
-  char* cmd = new char[stl.length()+1];
-  strcpy(cmd, stl.c_str());
+  String cmdStr = "GET /judge?userName=" + userName + "&token=" + keyValue + "\r\n\r\n";
+  char* cmd = new char[cmdStr.length()+1];
+  strcpy(cmd, cmdStr.c_str());
   Serial.print("cmd : ");
   Serial.println(cmd);
+  Serial.print("cmdLength : ");
   Serial.println(strlen(cmd));
 
   // communicate with Server
@@ -152,7 +186,7 @@ void loop() {
           delay(250);
           noTone(BUZZER_PIN);
         }
-  servo.detach();
+      servo.detach();
       } else {
         Serial.println("An error occured!");
         wifi.releaseTCP();
@@ -170,14 +204,16 @@ void loop() {
   // variables refresh
   delete[] cmd;
   cmd = NULL;
-  password = "";
+  userName = "";
+  keyValue ="";
   success = false;
-  for (uint8_t i = 0; i < uidLength; i++)
+  for (uint8_t i = 0; i < sizeof(responseAPDU); i++)
   {
-      uid[i]=0;
+      responseAPDU[i]=0;
   }
-  uidLength = 0;
+  responseLength = 52;
   
   // release TCP
   wifi.releaseTCP();
+    
 }
