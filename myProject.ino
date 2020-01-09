@@ -6,10 +6,14 @@
 #include <Servo.h>
 #include <String.h>
  
-#define BT_RXD      2 
-#define BT_TXD      3
-#define SERVO_PIN   5
-#define BUZZER_PIN  12
+#define BT_RXD      12 
+#define BT_TXD      13
+#define SERVO_PIN   8
+#define BUZZER_PIN  11
+#define PN532_SCK  (2)
+#define PN532_MOSI (3)
+#define PN532_SS   (4)
+#define PN532_MISO (5)
 
 //#define DL_NFC_AID  "3ADF2C8692"
 //#define SELECT_APDU "00A40400"
@@ -25,7 +29,8 @@ SoftwareSerial ESP_wifi(BT_RXD, BT_TXD);
 Servo servo;
 
 ESP8266 wifi(ESP_wifi);
-Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+//Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 const int melody_open[] = {3951,3136,3520,4699};
 const int melody_close[] = {3136, 3951, 4699};
