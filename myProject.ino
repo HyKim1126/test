@@ -4,7 +4,6 @@
 #include <SPI.h>
 #include <Adafruit_PN532.h>
 #include <Servo.h>
-#include <String.h>
  
 #define BT_RXD      12 
 #define BT_TXD      13
