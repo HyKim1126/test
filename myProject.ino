@@ -20,10 +20,10 @@
 
 #define SSID        "KT_GiGA_2G_Wave2_DD93"
 #define PASSWORD    "baf30bd739"
-#define HOST_NAME   "172.30.1.42"
-#define HOST_PORT   3000
-#define PN532_IRQ   9
-#define PN532_RESET 8
+#define HOST_NAME   "172.30.1.48"
+#define HOST_PORT   (3000)
+#define PN532_IRQ   (9)
+#define PN532_RESET (8)
 
 SoftwareSerial ESP_wifi(BT_RXD, BT_TXD);
 Servo servo;
@@ -39,18 +39,11 @@ const int melody_wrong = 3322;
 
 const uint8_t selectCommand[] = {0x00, 0xa4, 0x04, 0x00, 0x05, 0x3a, 0xdf, 0x2c, 0x86, 0x92};
 
-String userName = "";
-String keyValue = "";
-bool success = false;
-bool successTag = false;
+
+
 uint8_t responseLength = 52;
 uint8_t responseAPDU[52];
 bool isOpened = false;
-bool isCmdBuilt = false;
-
-
-void afterDoorOpened();
-void openDoorLock();
 
 void setup() {
   // WiFi setup
@@ -96,129 +89,129 @@ void setup() {
   nfc.setPassiveActivationRetries(0xFF);
   nfc.SAMConfig(); 
 
-  //Servo moter setting
   pinMode(MAIN_BUTTON, INPUT);
 }
 
 void loop() {
   //check door status
-  Serial.print(servo.read());
-  if(servo.read() < 89){
+  Serial.println(servo.read());
+  if(servo.read() < 60){
     afterDoorOpened();
   }
+  
   if((isOpened == false) && (digitalRead(MAIN_BUTTON) == HIGH)){
     openDoorLock();
   }
-  //NFC communication
-  char instChar = "";  
-  Serial.println("\r\nWait for NFC tag");
-  success = nfc.inListPassiveTarget();
-  if(success){
+  nfcCommunication();
+}
+
+void nfcCommunication(){
+  bool success = nfc.inListPassiveTarget();
+  if(success){    
     success = nfc.inDataExchange(selectCommand, sizeof(selectCommand), responseAPDU, &responseLength);
     if(success){
       tone(BUZZER_PIN, 3951, 200);
       delay(200);
       noTone(BUZZER_PIN);
       Serial.print("responseLength: "); Serial.println(responseLength);
-      nfc.PrintHexChar(responseAPDU, responseLength); 
-    }
-  
-    Serial.println("NFC tag completed");
-    delay(200);
-  
-    // Distinguish response
-    if (!(responseAPDU[50] == 0x90 && responseAPDU[51] == 0x00)){
-      Serial.println("APDU failed.");
-      success = false;
-      instChar = "";
-      for(int Note = 0; Note < 8; Note++){
-        tone(BUZZER_PIN, melody_wrong, 200);
-        delay(250);
-        noTone(BUZZER_PIN);
-      }
+      nfc.PrintHexChar(responseAPDU, responseLength);
+      Serial.println("NFC tag completed");
+      delay(200);
+      if (!(responseAPDU[50] == 0x90 && responseAPDU[51] == 0x00)){
+        Serial.println("APDU failed.");
+        for(int Note = 0; Note < 8; Note++){
+          tone(BUZZER_PIN, melody_wrong, 200);
+          delay(250);
+          noTone(BUZZER_PIN);
+        }
+        return;
+      } else {
+        analyzeResponse(responseAPDU);
+      }    
+    } else {
       return;
     }
-  
-    // Make userName and keyValue String
-    for(int i = 0 ; i < 50 ; i++){
-      if((i < 30)){
-        if(responseAPDU[i] != 0x00){
-          instChar = responseAPDU[i];
-          userName += instChar;
-        }
-      } else {
+  }
+}  
+
+void analyzeResponse(uint8_t responseAPDU[]){
+  char instChar = "";
+  String userName = "";
+  String keyValue = "";
+  for(int i = 0 ; i < 50 ; i++){
+    if((i < 30)){
+      if(responseAPDU[i] != 0x00){
         instChar = responseAPDU[i];
-        keyValue += instChar;
+        userName += instChar;
       }
+    } else {
+      instChar = responseAPDU[i];
+      keyValue += instChar;
     }
-    
+  }
     Serial.print("Username is ");
     Serial.println(userName);
     Serial.print("Keyvalue is ");
     Serial.println(keyValue);
+
+    makeGETcommand(userName, keyValue);
+}
   
-    // create TCP
-    wifi.createTCP(HOST_NAME, HOST_PORT);
-    
-    // create command
-    String judge = "";
-    String cmdStr = "GET /judge?userName=" + userName + "&token=" + keyValue + "\r\n\r\n";
-    char* cmd = new char[cmdStr.length()+1];
-    strcpy(cmd, cmdStr.c_str());
-    Serial.print("cmd : ");
-    Serial.println(cmd);
-    Serial.print("cmdLength : ");
-    Serial.println(strlen(cmd));
-    
- 
-    // communicate with Server
-    if(wifi.send(cmd, strlen(cmd))){
-      judge = wifi.recvStringMP("_forbidden", "_permitted", 2000);
-      Serial.println(judge);
-        if(judge == "_forbidden"){
-          Serial.println("Access is forbbiden!");
-          for(int Note = 0; Note < 8; Note++){
-            tone(BUZZER_PIN, melody_wrong, 200);
-            delay(250);
-            noTone(BUZZER_PIN);
-          }
-          servo.detach();          
-        } else if(judge == "_permitted"){
-          Serial.println("Access is permitted!");
-          openDoorLock();
-        } else {
-          Serial.println("An error occured!");
-          wifi.releaseTCP();
-          delete[] cmd;
-          cmd = NULL;     
-          return;
-        }
-    } else {
-      Serial.println("send ERR.. retrying");
-      wifi.releaseTCP();
-      delete[] cmd;
-      cmd = NULL;
-      return;
-    }
-    
-    // variables refresh
-    delete[] cmd;
-    cmd = NULL;
-    userName = "";
-    keyValue ="";
-    success = false;
-    for (uint8_t i = 0; i < sizeof(responseAPDU); i++)
-    {
-        responseAPDU[i]=0;
-    }
-    responseLength = 52;
-    
-    // release TCP
-    wifi.releaseTCP();
+void makeGETcommand(String userName, String keyValue){
+  String cmdStr = "GET /judge?userName=" + userName + "&token=" + keyValue + "\r\n\r\n";
+  char* cmd = new char[cmdStr.length()+1];
+  strcpy(cmd, cmdStr.c_str());
+  Serial.print("cmd : ");
+  Serial.println(cmd);
+  Serial.print("cmdLength : ");
+  Serial.println(strlen(cmd));
+
+  bool succeedTCP = false;
+  while(!succeedTCP){
+   succeedTCP = startTCPcommunication(cmd); 
   }
 }
 
-// custom functions
+bool startTCPcommunication(char* cmd){
+  String judge = "";
+  wifi.createTCP(HOST_NAME, HOST_PORT);
+  if(wifi.send(cmd, strlen(cmd))){
+    judge = wifi.recvStringMP("_forbid", "_permit", 2000);
+    Serial.println(judge);
+      if(judge == "_forbid"){
+        Serial.println("Access is forbbiden!");
+        for(int Note = 0; Note < 8; Note++){
+          tone(BUZZER_PIN, melody_wrong, 200);
+          delay(250);
+          noTone(BUZZER_PIN);
+        }
+        servo.detach();
+        delete[] cmd;
+        cmd = NULL;
+        return true;          
+      } else if(judge == "_permit"){
+        Serial.println("Access is permitted!");
+        openDoorLock();
+        delete[] cmd;
+        cmd = NULL;
+        wifi.releaseTCP();
+        return true;
+      } else {
+        Serial.println("An error occured!");
+        wifi.releaseTCP();
+        delete[] cmd;
+        cmd = NULL;     
+        return false;
+      }
+  } else {
+    Serial.println("send ERR.. retrying");
+    wifi.releaseTCP();
+    delete[] cmd;
+    cmd = NULL;
+    return false;
+  }  
+}
+
 void openDoorLock(){
   Serial.println("Open the door.");
   servo.attach(SERVO_PIN);
