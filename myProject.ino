@@ -37,6 +37,7 @@ const uint8_t selectCommand[] = {0x00, 0xa4, 0x04, 0x00, 0x05, 0x3a, 0xdf, 0x2c,
 uint8_t responseLength = 52;
 uint8_t responseAPDU[52];
 bool isOpened = false;
+int retryCount = 0;
 
 void setup() {
   // WiFi setup
@@ -159,6 +160,14 @@ void makeGETcommand(String userName, String keyValue){
   bool succeedTCP = false;
   while(!succeedTCP){
    succeedTCP = startTCPcommunication(cmd); 
+   if (retryCount >= 3){
+      for(int Note = 0; Note < 8; Note++){
+        tone(BUZZER_PIN, melody_wrong, 200);
+        delay(250);
+        noTone(BUZZER_PIN);
+      }
+      break;
+    }
   }
 }
 
@@ -175,28 +184,30 @@ bool startTCPcommunication(char* cmd){
           delay(250);
           noTone(BUZZER_PIN);
         }
+        wifi.releaseTCP();
+        Serial.println("TCP is released completely");
         delete[] cmd;
         cmd = NULL;
         return true;          
       } else if(judge == "_permit"){
         Serial.println("Access is permitted!");
         openDoorLock();
+        
         delete[] cmd;
         cmd = NULL;
         wifi.releaseTCP();
+        Serial.println("TCP is released completely");
         return true;
       } else {
         Serial.println("An error occured!");
         wifi.releaseTCP();
-        delete[] cmd;
-        cmd = NULL;     
+        Serial.println("TCP is released completely");   
         return false;
       }
   } else {
     Serial.println("send ERR.. retrying");
     wifi.releaseTCP();
-    delete[] cmd;
-    cmd = NULL;
+    Serial.println("TCP is released completely");
     return false;
   }  
 }
