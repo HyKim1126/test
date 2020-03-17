@@ -3,11 +3,11 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_PN532.h>
-#include <Servo.h>
  
 #define BT_RXD      (2) 
-#define BT_TXD      (3)
-#define SERVO_PIN   (8)
+#define BT_TXD      (3) 
+#define MOTOR_OPEN  (8)
+#define MOTOR_CLOSE (6)
 #define BUZZER_PIN  (7)
 #define PN532_SCK  (13)
 #define PN532_MOSI (11)
@@ -22,11 +22,8 @@
 #define PASSWORD    "baf30bd739"
 #define HOST_NAME   "172.30.1.48"
 #define HOST_PORT   (3000)
-#define PN532_IRQ   (9)
-#define PN532_RESET (8)
 
 SoftwareSerial ESP_wifi(BT_RXD, BT_TXD);
-Servo servo;
 
 ESP8266 wifi(ESP_wifi);
 //Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
@@ -36,11 +33,7 @@ Adafruit_PN532 nfc(PN532_SS);
 const int melody_open[] = {3951,3136,3520,4699};
 const int melody_close[] = {3136, 3951, 4699};
 const int melody_wrong = 3322;
-
 const uint8_t selectCommand[] = {0x00, 0xa4, 0x04, 0x00, 0x05, 0x3a, 0xdf, 0x2c, 0x86, 0x92};
-
-
-
 uint8_t responseLength = 52;
 uint8_t responseAPDU[52];
 bool isOpened = false;
@@ -90,14 +83,11 @@ void setup() {
   nfc.SAMConfig(); 
 
   pinMode(MAIN_BUTTON, INPUT);
+  pinMode(MOTOR_OPEN, OUTPUT);
+  pinMode(MOTOR_CLOSE, OUTPUT);
 }
 
 void loop() {
-  //check door status
-  Serial.println(servo.read());
-  if(servo.read() < 60){
-    afterDoorOpened();
-  }
   
   if((isOpened == false) && (digitalRead(MAIN_BUTTON) == HIGH)){
     openDoorLock();
@@ -110,8 +100,8 @@ void nfcCommunication(){
   if(success){    
     success = nfc.inDataExchange(selectCommand, sizeof(selectCommand), responseAPDU, &responseLength);
     if(success){
-      tone(BUZZER_PIN, 3951, 200);
-      delay(200);
+      tone(BUZZER_PIN, 3951, 50);
+      delay(75);
       noTone(BUZZER_PIN);
       Serial.print("responseLength: "); Serial.println(responseLength);
       nfc.PrintHexChar(responseAPDU, responseLength);
@@ -120,8 +110,8 @@ void nfcCommunication(){
       if (!(responseAPDU[50] == 0x90 && responseAPDU[51] == 0x00)){
         Serial.println("APDU failed.");
         for(int Note = 0; Note < 8; Note++){
-          tone(BUZZER_PIN, melody_wrong, 200);
-          delay(250);
+          tone(BUZZER_PIN, melody_wrong, 100);
+          delay(150);
           noTone(BUZZER_PIN);
         }
         return;
@@ -176,7 +166,7 @@ bool startTCPcommunication(char* cmd){
   String judge = "";
   wifi.createTCP(HOST_NAME, HOST_PORT);
   if(wifi.send(cmd, strlen(cmd))){
-    judge = wifi.recvStringMP("_forbid", "_permit", 2000);
+    judge = wifi.recvStringMP("_forbid", "_permit", 3000);
     Serial.println(judge);
       if(judge == "_forbid"){
         Serial.println("Access is forbbiden!");
@@ -185,7 +175,6 @@ bool startTCPcommunication(char* cmd){
           delay(250);
           noTone(BUZZER_PIN);
         }
-        servo.detach();
         delete[] cmd;
         cmd = NULL;
         return true;          
@@ -214,14 +203,13 @@ bool startTCPcommunication(char* cmd){
 
 void openDoorLock(){
   Serial.println("Open the door.");
-  servo.attach(SERVO_PIN);
-  servo.write(0);
+  digitalWrite(MOTOR_OPEN, HIGH);
   for(int Note=0; Note < 4; Note++){
     tone(BUZZER_PIN, melody_open[Note], 200);
     delay(250);
     noTone(BUZZER_PIN); 
   }
-  servo.detach();
+  digitalWrite(MOTOR_OPEN, LOW);
   afterDoorOpened();
 }
 
@@ -231,15 +219,14 @@ void afterDoorOpened(){
   while(isOpened){
     if(digitalRead(MAIN_BUTTON) == HIGH){
       isOpened = false;
-      Serial.println("DoorLock is unlocking.");
-      servo.attach(SERVO_PIN);
-      servo.write(90);
+      digitalWrite(MOTOR_CLOSE, HIGH);
+      Serial.println("DoorLock is locking.");
       for(int Note = 0; Note < 3; Note++){
         tone(BUZZER_PIN, melody_close[Note], 200);
         delay(250);
         noTone(BUZZER_PIN);
       }
-      servo.detach();
+      digitalWrite(MOTOR_CLOSE, LOW);
     }
   }
 }
